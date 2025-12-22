@@ -1,0 +1,74 @@
+// Prisma schema file
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Patient model for patient registration
+model Patient {
+  id              String   @id @default(uuid())
+  patientId       String   @unique // System-generated patient ID (e.g., PAT-000001)
+  fullName        String
+  email           String   @unique
+  password        String
+  phoneNumber     String
+  countyResidence String
+  nationality     String
+  emailVerified   Boolean  @default(false)
+  termsAccepted   Boolean  @default(false)
+  termsAcceptedAt DateTime?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  otpCodes             OtpCode[]
+  passwordResetTokens  PasswordResetToken[]
+
+  @@map("patients")
+}
+
+// OTP codes for email verification
+model OtpCode {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  type      OtpType
+  expiresAt DateTime
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  patient   Patient? @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientId String?
+
+  @@index([email, type])
+  @@map("otp_codes")
+}
+
+enum OtpType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+// Password reset tokens for forgot password via link
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique // Unique reset token
+  email     String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  patient   Patient? @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientId String?
+
+  @@index([email])
+  @@index([token])
+  @@map("password_reset_tokens")
+}
