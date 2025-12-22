@@ -1,8 +1,8 @@
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { env } from '@config/env';
-import { UnauthorizedError } from '@shared/exceptions/AppError';
-import prisma from '@config/database';
+import { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
+import { env } from "@config/env";
+import { UnauthorizedError } from "@shared/exceptions/AppError";
+import prisma from "@config/database";
 
 export interface JwtPayload {
   id: string;
@@ -29,8 +29,8 @@ export const authenticatePatient = async (
     // Get token from header
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedError('No token provided');
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      throw new UnauthorizedError("No token provided");
     }
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
@@ -39,8 +39,8 @@ export const authenticatePatient = async (
     const decoded = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
 
     // Check if user is a patient
-    if (decoded.role !== 'PATIENT') {
-      throw new UnauthorizedError('Access denied. Patient role required.');
+    if (decoded.role !== "PATIENT") {
+      throw new UnauthorizedError("Access denied. Patient role required.");
     }
 
     // Check current patient status in database
@@ -55,17 +55,21 @@ export const authenticatePatient = async (
 
     // Check if patient exists
     if (!patient) {
-      throw new UnauthorizedError('Patient not found');
+      throw new UnauthorizedError("Patient not found");
     }
 
     // Check if patient has accepted terms
     if (!patient.termsAccepted) {
-      throw new UnauthorizedError('Please accept the terms and conditions to access this resource');
+      throw new UnauthorizedError(
+        "Please accept the terms and conditions to access this resource"
+      );
     }
 
     // Check if patient account is active
     if (!patient.isActive) {
-      throw new UnauthorizedError('Account is inactive. Please contact support.');
+      throw new UnauthorizedError(
+        "Account is inactive. Please contact support."
+      );
     }
 
     // Attach user to request
@@ -77,9 +81,9 @@ export const authenticatePatient = async (
     if (error instanceof UnauthorizedError) {
       next(error);
     } else if (error instanceof jwt.JsonWebTokenError) {
-      next(new UnauthorizedError('Invalid token'));
+      next(new UnauthorizedError("Invalid token"));
     } else if (error instanceof jwt.TokenExpiredError) {
-      next(new UnauthorizedError('Token expired'));
+      next(new UnauthorizedError("Token expired"));
     } else {
       next(error);
     }

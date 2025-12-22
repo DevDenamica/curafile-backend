@@ -3,7 +3,7 @@ import { env } from "@config/env";
 import { connectDatabase, disconnectDatabase } from "@config/database";
 import logger from "@shared/utils/logger";
 
-const PORT = parseInt(env.APP_PORT, 10);
+const PORT = parseInt(process.env.APP_PORT || env.APP_PORT, 10);
 
 const startServer = async (): Promise<void> => {
   try {
