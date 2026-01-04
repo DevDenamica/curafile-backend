@@ -9,7 +9,7 @@ import notFoundHandler from '@shared/middlewares/notFound';
 
 // Routes
 import healthRoutes from '@modules/health/health.routes';
-import patientRoutes from '@modules/patients/patient.routes';
+import patientRoutes from '@modules/patients';
 
 class App {
   public app: Application;

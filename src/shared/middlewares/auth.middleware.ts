@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { env } from "@config/env";
 import { UnauthorizedError } from "@shared/exceptions/AppError";
 import prisma from "@config/database";
+import logoutService from "@modules/patients/auth/logout.service";
 
 export interface JwtPayload {
   id: string;
@@ -33,10 +34,18 @@ export const authenticatePatient = async (
       throw new UnauthorizedError("No token provided");
     }
 
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    const token = authHeader.substring(7);
 
-    // Verify token
+    // Verify JWT signature and expiration
     const decoded = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
+
+    // Check if token is blacklisted (for logout functionality)
+    const isBlacklisted = await logoutService.isTokenBlacklisted(token);
+    if (isBlacklisted) {
+      throw new UnauthorizedError(
+        "Token has been invalidated. Please login again."
+      );
+    }
 
     // Check if user is a patient
     if (decoded.role !== "PATIENT") {

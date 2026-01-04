@@ -1,10 +1,10 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { env } from "@config/env";
-import patientRepository from "./patient.repository";
+import patientRepository from "../shared/patient.repository";
 import otpService from "@shared/services/otp.service";
 import emailService from "@shared/services/email.service";
-import passwordResetService from "@shared/services/passwordReset.service";
+import logger from "@shared/utils/logger";
 import { PasswordValidator } from "@shared/utils/passwordValidator";
 import {
   SendOtpDto,
@@ -14,9 +14,7 @@ import {
   LoginDto,
   PatientResponse,
   AuthResponse,
-  ForgotPasswordDto,
-  ResetPasswordDto,
-} from "./patient.dto";
+} from "./auth.dto";
 import {
   BadRequestError,
   ConflictError,
@@ -25,7 +23,7 @@ import {
 } from "@shared/exceptions/AppError";
 import type { Patient } from "@prisma/client";
 
-export class PatientService {
+export class AuthService {
   // Step 1: Send OTP to email
   async sendOtp(data: SendOtpDto): Promise<{ message: string }> {
     const { email } = data;
@@ -147,11 +145,11 @@ export class PatientService {
       throw new UnauthorizedError("Invalid email or password");
     }
 
-    // Check if patient is active
+    // Check if patient is active - if not, reactivate on login
     if (!patient.isActive) {
-      throw new UnauthorizedError(
-        "Account is inactive. Please contact support."
-      );
+      // Auto-reactivate account on successful login
+      await patientRepository.reactivate(patient.id);
+      logger.info(`Patient ${patient.email} reactivated account via login`);
     }
 
     // Check if terms were accepted
@@ -174,16 +172,6 @@ export class PatientService {
       patient: this.toPatientResponse(patient),
       token,
     };
-  }
-
-  // Get patient profile
-  async getProfile(patientId: string): Promise<PatientResponse> {
-    const patient = await patientRepository.findById(patientId);
-    if (!patient) {
-      throw new NotFoundError("Patient not found");
-    }
-
-    return this.toPatientResponse(patient);
   }
 
   // Helper: Generate JWT token
@@ -209,7 +197,7 @@ export class PatientService {
       fullName: patient.fullName,
       email: patient.email,
       phoneNumber: patient.phoneNumber,
-      countyResidence: patient.countyResidence,
+      countryResidence: patient.countryResidence || "",
       nationality: patient.nationality,
       emailVerified: patient.emailVerified,
       termsAccepted: patient.termsAccepted,
@@ -217,87 +205,6 @@ export class PatientService {
       createdAt: patient.createdAt,
     };
   }
-
-  // Forgot Password - Request password reset via link
-  async forgotPassword(data: ForgotPasswordDto): Promise<{ message: string }> {
-    const { email } = data;
-
-    // Check if patient exists
-    const patient = await patientRepository.findByEmail(email);
-    if (!patient) {
-      // Don't reveal if email exists or not (security)
-      return {
-        message: `If an account exists with ${email}, you will receive a password reset link shortly`,
-      };
-    }
-
-    // Check if account is active
-    if (!patient.isActive) {
-      throw new BadRequestError("Account is inactive, please contact support");
-    }
-
-    // Generate reset token and send email with link
-    const resetToken = await passwordResetService.createResetToken(email);
-    await emailService.sendPasswordResetLink(email, resetToken);
-
-    return {
-      message: `If an account exists with ${email}, you will receive a password reset link shortly`,
-    };
-  }
-
-  // Verify reset token (optional - for frontend to check if token is valid)
-  async verifyResetToken(token: string): Promise<{ valid: boolean; email?: string }> {
-    return await passwordResetService.verifyResetToken(token);
-  }
-
-  // Reset Password with token
-  async resetPassword(data: ResetPasswordDto): Promise<{ message: string }> {
-    const { token, newPassword } = data;
-
-    // Verify reset token
-    const tokenVerification = await passwordResetService.verifyResetToken(token);
-    if (!tokenVerification.valid || !tokenVerification.email) {
-      throw new BadRequestError(
-        "Invalid or expired reset link. Please request a new password reset"
-      );
-    }
-
-    const email = tokenVerification.email;
-
-    // Find patient
-    const patient = await patientRepository.findByEmail(email);
-    if (!patient) {
-      throw new NotFoundError("Patient not found");
-    }
-
-    // Validate new password
-    const passwordValidation = PasswordValidator.validate(newPassword);
-    if (!passwordValidation.isValid) {
-      throw new BadRequestError(passwordValidation.errors.join(", "));
-    }
-
-    // Check if new password is same as old password
-    const isSamePassword = await bcrypt.compare(newPassword, patient.password);
-    if (isSamePassword) {
-      throw new BadRequestError(
-        "New password cannot be the same as your current password"
-      );
-    }
-
-    // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    // Update password
-    await patientRepository.updatePassword(patient.id, hashedPassword);
-
-    // Mark token as used
-    await passwordResetService.markTokenAsUsed(token);
-
-    return {
-      message:
-        "Password reset successfully. You can now login with your new password",
-    };
-  }
 }
 
-export default new PatientService();
+export default new AuthService();

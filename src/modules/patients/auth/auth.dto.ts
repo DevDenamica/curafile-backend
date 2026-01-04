@@ -23,7 +23,7 @@ export const completeRegistrationSchema = z.object({
   phoneNumber: z
     .string()
     .min(10, "Phone number must be at least 10 characters"),
-  countyResidence: z.string().min(2, "County residence is required"),
+  countryResidence: z.string().min(2, "Country residence is required"),
   nationality: z.string().min(2, "Nationality is required"),
 });
 
@@ -56,7 +56,7 @@ export interface PatientResponse {
   fullName: string;
   email: string;
   phoneNumber: string;
-  countyResidence: string;
+  countryResidence: string;
   nationality: string;
   emailVerified: boolean;
   termsAccepted: boolean;
@@ -69,25 +69,3 @@ export interface AuthResponse {
   patient: PatientResponse;
   token: string;
 }
-
-// Forgot Password
-export const forgotPasswordSchema = z.object({
-  email: z.string().email("Invalid email address"),
-});
-
-export type ForgotPasswordDto = z.infer<typeof forgotPasswordSchema>;
-
-// Verify Reset Token (optional - for frontend to check if token is valid)
-export const verifyResetTokenSchema = z.object({
-  token: z.string().min(1, "Reset token is required"),
-});
-
-export type VerifyResetTokenDto = z.infer<typeof verifyResetTokenSchema>;
-
-// Reset Password with Token
-export const resetPasswordSchema = z.object({
-  token: z.string().min(1, "Reset token is required"),
-  newPassword: z.string().min(8, "Password must be at least 8 characters"),
-});
-
-export type ResetPasswordDto = z.infer<typeof resetPasswordSchema>;

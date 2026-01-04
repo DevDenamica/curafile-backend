@@ -18,8 +18,21 @@ model Patient {
   email           String   @unique
   password        String
   phoneNumber     String
-  countyResidence String
+  countryResidence String?
   nationality     String
+
+  dateOfBirth     DateTime?
+  gender          Gender?
+  address         String?
+  city            String?
+  zipCode         String?
+  emergencyContact  String?
+  emergencyPhone    String?
+  bloodType       String?
+  allergies       String?
+  chronicConditions String?
+  profilePhoto    String?
+
   emailVerified   Boolean  @default(false)
   termsAccepted   Boolean  @default(false)
   termsAcceptedAt DateTime?
@@ -29,6 +42,7 @@ model Patient {
 
   otpCodes             OtpCode[]
   passwordResetTokens  PasswordResetToken[]
+  tokenBlacklist       TokenBlacklist[]
 
   @@map("patients")
 }
@@ -55,6 +69,11 @@ enum OtpType {
   PASSWORD_RESET
 }
 
+enum Gender {
+  MALE
+  FEMALE
+}
+
 // Password reset tokens for forgot password via link
 model PasswordResetToken {
   id        String   @id @default(uuid())
@@ -71,4 +90,33 @@ model PasswordResetToken {
   @@index([email])
   @@index([token])
   @@map("password_reset_tokens")
+}
+
+// Token blacklist for logout functionality
+// Why this model exists:
+// - JWT tokens are stateless (can't be invalidated on server by default)
+// - Medical systems need ability to force logout for security
+// - HIPAA requires audit trails of session terminations
+model TokenBlacklist {
+  id          String   @id @default(uuid())
+  token       String   @unique // The JWT token that's been invalidated
+  patientId   String   // Who this token belonged to
+  reason      LogoutReason @default(LOGOUT) // Why was it blacklisted
+  expiresAt   DateTime // When token would have expired (for cleanup)
+  createdAt   DateTime @default(now())
+
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([token]) // Fast lookup when validating tokens
+  @@index([patientId]) // Find all blacklisted tokens for a patient
+  @@index([expiresAt]) // For cleanup of expired entries
+  @@map("token_blacklist")
+}
+
+enum LogoutReason {
+  LOGOUT              // Normal user logout
+  LOGOUT_ALL_DEVICES  // User logged out from all devices
+  PASSWORD_CHANGED    // Password was changed (invalidate all sessions)
+  SECURITY            // Security incident (admin action)
+  ACCOUNT_DEACTIVATED // Account was deactivated
 }
