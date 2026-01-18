@@ -7,9 +7,12 @@ import logoutService from "@modules/patients/auth/logout.service";
 
 export interface JwtPayload {
   id: string;
-  patientId: string;
   email: string;
   role: string;
+}
+
+export interface AuthenticatedRequest extends Request {
+  user: JwtPayload;
 }
 
 // Extend Express Request type
@@ -27,7 +30,6 @@ export const authenticatePatient = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // Get token from header
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -36,10 +38,8 @@ export const authenticatePatient = async (
 
     const token = authHeader.substring(7);
 
-    // Verify JWT signature and expiration
     const decoded = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
 
-    // Check if token is blacklisted (for logout functionality)
     const isBlacklisted = await logoutService.isTokenBlacklisted(token);
     if (isBlacklisted) {
       throw new UnauthorizedError(
@@ -47,46 +47,33 @@ export const authenticatePatient = async (
       );
     }
 
-    // Check if user is a patient
     if (decoded.role !== "PATIENT") {
       throw new UnauthorizedError("Access denied. Patient role required.");
     }
 
-    // Check current patient status in database
-    const patient = await prisma.patient.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: decoded.id },
       select: {
         id: true,
-        termsAccepted: true,
         isActive: true,
+        isDeleted: true,
       },
     });
 
-    // Check if patient exists
-    if (!patient) {
-      throw new UnauthorizedError("Patient not found");
+    if (!user) {
+      throw new UnauthorizedError("User not found");
     }
 
-    // Check if patient has accepted terms
-    if (!patient.termsAccepted) {
-      throw new UnauthorizedError(
-        "Please accept the terms and conditions to access this resource"
-      );
-    }
-
-    // Check if patient account is active
-    if (!patient.isActive) {
+    if (!user.isActive || user.isDeleted) {
       throw new UnauthorizedError(
         "Account is inactive. Please contact support."
       );
     }
 
-    // Attach user to request
     req.user = decoded;
 
     next();
   } catch (error) {
-    // Pass through UnauthorizedError we threw manually
     if (error instanceof UnauthorizedError) {
       next(error);
     } else if (error instanceof jwt.JsonWebTokenError) {

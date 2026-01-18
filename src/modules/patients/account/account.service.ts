@@ -7,33 +7,26 @@ import {
 } from "@shared/exceptions/AppError";
 
 export class AccountService {
-  /**
-   * Deactivate account (soft delete)
-   */
   async deactivateAccount(
-    patientId: string,
+    userId: string,
     password: string
   ): Promise<{ message: string }> {
-    // Get patient
-    const patient = await patientRepository.findById(patientId);
-    if (!patient) {
-      throw new NotFoundError("Patient not found");
+    const user = await patientRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundError("User not found");
     }
 
-    // Verify password before deactivation
-    const isPasswordValid = await bcrypt.compare(password, patient.password);
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
       throw new UnauthorizedError(
         "Incorrect password. Cannot deactivate account."
       );
     }
 
-    // Soft delete
-    await patientRepository.softDelete(patientId);
+    await patientRepository.softDelete(userId);
 
-    // Invalidate all tokens when account is deactivated
-    await logoutService.invalidateAllTokensForPatient(
-      patientId,
+    await logoutService.invalidateAllTokensForUser(
+      userId,
       "ACCOUNT_DEACTIVATED"
     );
 

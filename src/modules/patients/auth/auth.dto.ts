@@ -19,11 +19,11 @@ export type VerifyOtpDto = z.infer<typeof verifyOtpSchema>;
 export const completeRegistrationSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  fullName: z.string().min(2, "Full name must be at least 2 characters"),
+  firstName: z.string().min(2, "First name must be at least 2 characters"),
+  lastName: z.string().min(2, "Last name must be at least 2 characters"),
   phoneNumber: z
     .string()
     .min(10, "Phone number must be at least 10 characters"),
-  countryResidence: z.string().min(2, "Country residence is required"),
   nationality: z.string().min(2, "Nationality is required"),
 });
 
@@ -33,7 +33,6 @@ export type CompleteRegistrationDto = z.infer<
 
 // Step 4: Accept terms
 export const acceptTermsSchema = z.object({
-  email: z.string().email("Invalid email address"),
   termsAccepted: z.boolean().refine((val) => val === true, {
     message: "You must accept the terms and conditions",
   }),
@@ -49,23 +48,25 @@ export const loginSchema = z.object({
 
 export type LoginDto = z.infer<typeof loginSchema>;
 
-// Patient response
-export interface PatientResponse {
+// User response (for auth)
+export interface UserResponse {
   id: string;
-  patientId: string;
-  fullName: string;
   email: string;
-  phoneNumber: string;
-  countryResidence: string;
-  nationality: string;
-  emailVerified: boolean;
-  termsAccepted: boolean;
+  phoneNumber: string | null;
+  isEmailVerified: boolean;
   isActive: boolean;
   createdAt: Date;
+  profile: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    nationality: string | null;
+    qrCode: string;
+  } | null;
 }
 
 // Auth response
 export interface AuthResponse {
-  patient: PatientResponse;
+  user: UserResponse;
   token: string;
 }

@@ -1,68 +1,66 @@
-import patientRepository from "../shared/patient.repository";
-import { UpdatePatientProfileDto, PatientProfileResponse } from "./profile.dto";
+import patientRepository, {
+  UserWithProfile,
+} from "../shared/patient.repository";
+import {
+  UpdatePatientProfileDto,
+  PatientProfileResponse,
+} from "./profile.dto";
 import { NotFoundError } from "@shared/exceptions/AppError";
-import type { Patient } from "@prisma/client";
 
 export class ProfileService {
-  /**
-   * Get patient profile (extended version with all fields)
-   */
-  async getProfile(patientId: string): Promise<PatientProfileResponse> {
-    const patient = await patientRepository.findById(patientId);
-    if (!patient) {
-      throw new NotFoundError("Patient not found");
+  async getProfile(userId: string): Promise<PatientProfileResponse> {
+    const user = await patientRepository.findById(userId);
+    if (!user || !user.patientProfile) {
+      throw new NotFoundError("Patient profile not found");
     }
 
-    return this.toPatientProfileResponse(patient);
+    return this.toProfileResponse(user);
   }
 
-  /**
-   * Update patient profile
-   */
   async updateProfile(
-    patientId: string,
+    userId: string,
     data: UpdatePatientProfileDto
   ): Promise<PatientProfileResponse> {
-    // Check if patient exists
-    const existingPatient = await patientRepository.findById(patientId);
-    if (!existingPatient) {
-      throw new NotFoundError("Patient not found");
+    const existingUser = await patientRepository.findById(userId);
+    if (!existingUser || !existingUser.patientProfile) {
+      throw new NotFoundError("Patient profile not found");
     }
 
-    // Update profile
-    const updatedPatient = await patientRepository.updateProfile(
-      patientId,
-      data
-    );
+    await patientRepository.updateProfile(userId, data);
 
-    return this.toPatientProfileResponse(updatedPatient);
+    const updatedUser = await patientRepository.findById(userId);
+    if (!updatedUser || !updatedUser.patientProfile) {
+      throw new NotFoundError("Patient profile not found");
+    }
+
+    return this.toProfileResponse(updatedUser);
   }
 
-  // Helper: Convert Patient to PatientProfileResponse (extended version)
-  private toPatientProfileResponse(patient: Patient): PatientProfileResponse {
+  private toProfileResponse(user: UserWithProfile): PatientProfileResponse {
+    const profile = user.patientProfile!;
     return {
-      id: patient.id,
-      patientId: patient.patientId,
-      fullName: patient.fullName,
-      email: patient.email,
-      phoneNumber: patient.phoneNumber,
-      countryResidence: patient.countryResidence,
-      nationality: patient.nationality,
-      dateOfBirth: patient.dateOfBirth,
-      gender: patient.gender,
-      address: patient.address,
-      city: patient.city,
-      zipCode: patient.zipCode,
-      emergencyContact: patient.emergencyContact,
-      emergencyPhone: patient.emergencyPhone,
-      bloodType: patient.bloodType,
-      allergies: patient.allergies,
-      chronicConditions: patient.chronicConditions,
-      profilePhoto: patient.profilePhoto,
-      emailVerified: patient.emailVerified,
-      termsAccepted: patient.termsAccepted,
-      isActive: patient.isActive,
-      createdAt: patient.createdAt,
+      id: profile.id,
+      visitorId: user.id,
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      dateOfBirth: profile.dateOfBirth,
+      gender: profile.gender,
+      bloodType: profile.bloodType,
+      nationalId: profile.nationalId,
+      nationality: profile.nationality,
+      profilePicture: profile.profilePicture,
+      emergencyContactName: profile.emergencyContactName,
+      emergencyContactPhone: profile.emergencyContactPhone,
+      emergencyContactRelation: profile.emergencyContactRelation,
+      allergies: profile.allergies as string[] | null,
+      chronicConditions: profile.chronicConditions as string[] | null,
+      currentMedications: profile.currentMedications as string[] | null,
+      qrCode: profile.qrCode,
+      isEmailVerified: user.isEmailVerified,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
     };
   }
 }

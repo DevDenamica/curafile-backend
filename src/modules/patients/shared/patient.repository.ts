@@ -1,126 +1,130 @@
 import prisma from "@config/database";
-import { Patient } from "@prisma/client";
+import { User, PatientProfile, RoleType } from "@prisma/client";
 import { CompleteRegistrationDto } from "../auth/auth.dto";
 import { UpdatePatientProfileDto } from "../profile/profile.dto";
+import { v4 as uuidv4 } from "uuid";
+
+// Combined type for User with PatientProfile
+export type UserWithProfile = User & {
+  patientProfile: PatientProfile | null;
+};
 
 export class PatientRepository {
-  async findByEmail(email: string): Promise<Patient | null> {
-    return prisma.patient.findUnique({
+  async findByEmail(email: string): Promise<UserWithProfile | null> {
+    return prisma.user.findUnique({
       where: { email },
+      include: { patientProfile: true },
     });
   }
 
-  async findById(id: string): Promise<Patient | null> {
-    return prisma.patient.findUnique({
+  async findById(id: string): Promise<UserWithProfile | null> {
+    return prisma.user.findUnique({
       where: { id },
+      include: { patientProfile: true },
     });
   }
 
   async create(
     data: CompleteRegistrationDto & { hashedPassword: string }
-  ): Promise<Patient> {
-    // Generate unique patient ID
-    const count = await prisma.patient.count();
-    const patientId = `PAT-${String(count + 1).padStart(6, "0")}`;
+  ): Promise<UserWithProfile> {
+    // Generate unique QR code for patient profile
+    const qrCode = `PAT-${uuidv4().slice(0, 8).toUpperCase()}`;
 
-    return prisma.patient.create({
+    return prisma.user.create({
       data: {
-        patientId,
-        fullName: data.fullName,
         email: data.email,
-        password: data.hashedPassword,
         phoneNumber: data.phoneNumber,
-        countryResidence: data.countryResidence,
-        nationality: data.nationality,
-        emailVerified: true, // Email is already verified via OTP
+        passwordHash: data.hashedPassword,
+        isEmailVerified: true,
+        roles: {
+          create: {
+            roleType: RoleType.PATIENT,
+          },
+        },
+        patientProfile: {
+          create: {
+            firstName: data.firstName,
+            lastName: data.lastName,
+            nationality: data.nationality,
+            qrCode,
+          },
+        },
       },
+      include: { patientProfile: true },
     });
   }
 
-  async acceptTerms(email: string): Promise<Patient> {
-    return prisma.patient.update({
-      where: { email },
+  async acceptTerms(userId: string, termsVersionId: string): Promise<void> {
+    await prisma.termsAcceptance.create({
       data: {
-        termsAccepted: true,
-        termsAcceptedAt: new Date(),
+        userId,
+        termsVersionId,
       },
     });
   }
 
-  async updatePassword(id: string, hashedPassword: string): Promise<Patient> {
-    return prisma.patient.update({
-      where: { id },
-      data: { password: hashedPassword },
+  async hasAcceptedTerms(userId: string): Promise<boolean> {
+    const acceptance = await prisma.termsAcceptance.findFirst({
+      where: { userId },
+      orderBy: { acceptedAt: "desc" },
     });
+    return !!acceptance;
   }
 
-  // Update patient profile
-  // @param id - Patient ID
-  // @param data - Fields to update
-  // @return Updated patient
+  async updatePassword(id: string, hashedPassword: string): Promise<User> {
+    return prisma.user.update({
+      where: { id },
+      data: { passwordHash: hashedPassword },
+    });
+  }
 
   async updateProfile(
-    id: string,
+    userId: string,
     data: UpdatePatientProfileDto
-  ): Promise<Patient> {
-    // Extract dateOfBirth from data to handle separately
+  ): Promise<PatientProfile> {
     const { dateOfBirth, ...restData } = data;
 
-    return prisma.patient.update({
-      where: { id },
+    return prisma.patientProfile.update({
+      where: { userId },
       data: {
         ...restData,
-        // Convert dateOfBirth string to Date if provided
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
-        updatedAt: new Date(),
       },
     });
   }
 
-  // Delete patient account (soft delete)
-  // @param id - Patient ID
-  // @returns Updated patient with isActive = false
-
-  async softDelete(id: string): Promise<Patient> {
-    return prisma.patient.update({
+  async softDelete(id: string): Promise<User> {
+    return prisma.user.update({
       where: { id },
       data: {
         isActive: false,
-        updatedAt: new Date(),
+        isDeleted: true,
+        deletedAt: new Date(),
       },
     });
   }
 
-  // ⚠️ PERMANENTLY DELETE PATIENT ACCOUNT - DO NOT USE IN PRODUCTION! ⚠️
-  // WARNING: This should NEVER be used in a medical system!
-  // Reasons:
-  // 1. Medical records must be retained for legal compliance (HIPAA, etc.)
-  // 2. Patient safety - historical data needed for future care
-  // 3. Legal protection - records needed for malpractice cases
-  // 4. Research & analytics - de-identified data for medical research
-  //
-  // ✅ USE softDelete() instead for GDPR "right to be forgotten" compliance
-  //    while preserving critical medical history.
-  //
-  // This method exists ONLY for testing/development purposes.
-  // @param id - Patient ID
-
   async hardDelete(id: string): Promise<void> {
-    await prisma.patient.delete({
+    await prisma.user.delete({
       where: { id },
     });
   }
 
-  // Reactivate soft-delete account
-  // @param id - Patient ID
-
-  async reactivate(id: string): Promise<Patient> {
-    return prisma.patient.update({
+  async reactivate(id: string): Promise<User> {
+    return prisma.user.update({
       where: { id },
       data: {
         isActive: true,
-        updatedAt: new Date(),
+        isDeleted: false,
+        deletedAt: null,
       },
+    });
+  }
+
+  async updateLastLogin(id: string): Promise<void> {
+    await prisma.user.update({
+      where: { id },
+      data: { lastLoginAt: new Date() },
     });
   }
 }

@@ -12,7 +12,11 @@ router.post(
   "/complete-registration",
   authController.completeRegistration.bind(authController)
 );
-router.post("/accept-terms", authController.acceptTerms.bind(authController));
+router.post(
+  "/accept-terms",
+  authenticatePatient,
+  authController.acceptTerms.bind(authController)
+);
 router.post("/login", authController.login.bind(authController));
 
 // Protected logout routes (require authentication)

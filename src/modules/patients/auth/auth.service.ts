@@ -1,7 +1,9 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { env } from "@config/env";
-import patientRepository from "../shared/patient.repository";
+import patientRepository, {
+  UserWithProfile,
+} from "../shared/patient.repository";
 import otpService from "@shared/services/otp.service";
 import emailService from "@shared/services/email.service";
 import logger from "@shared/utils/logger";
@@ -12,7 +14,7 @@ import {
   CompleteRegistrationDto,
   AcceptTermsDto,
   LoginDto,
-  PatientResponse,
+  UserResponse,
   AuthResponse,
 } from "./auth.dto";
 import {
@@ -21,20 +23,17 @@ import {
   UnauthorizedError,
   NotFoundError,
 } from "@shared/exceptions/AppError";
-import type { Patient } from "@prisma/client";
+import prisma from "@config/database";
 
 export class AuthService {
-  // Step 1: Send OTP to email
   async sendOtp(data: SendOtpDto): Promise<{ message: string }> {
     const { email } = data;
 
-    // Check if patient already exists
-    const existingPatient = await patientRepository.findByEmail(email);
-    if (existingPatient) {
+    const existingUser = await patientRepository.findByEmail(email);
+    if (existingUser) {
       throw new ConflictError("Email already registered");
     }
 
-    // Send OTP
     await otpService.sendEmailVerificationOTP(email);
 
     return {
@@ -42,7 +41,6 @@ export class AuthService {
     };
   }
 
-  // Step 2: Verify OTP
   async verifyOtp(
     data: VerifyOtpDto
   ): Promise<{ message: string; verified: boolean }> {
@@ -61,13 +59,11 @@ export class AuthService {
     };
   }
 
-  // Step 3: Complete registration with details
   async completeRegistration(
     data: CompleteRegistrationDto
-  ): Promise<{ message: string; patient: PatientResponse }> {
+  ): Promise<{ message: string; user: UserResponse }> {
     const { email, password } = data;
 
-    // Check if email was verified
     const hasVerifiedEmail = await otpService.hasVerifiedEmail(email);
     if (!hasVerifiedEmail) {
       throw new BadRequestError(
@@ -75,23 +71,19 @@ export class AuthService {
       );
     }
 
-    // Check if patient already exists
-    const existingPatient = await patientRepository.findByEmail(email);
-    if (existingPatient) {
+    const existingUser = await patientRepository.findByEmail(email);
+    if (existingUser) {
       throw new ConflictError("Email already registered");
     }
 
-    // Validate password
     const passwordValidation = PasswordValidator.validate(password);
     if (!passwordValidation.isValid) {
       throw new BadRequestError(passwordValidation.errors.join(", "));
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create patient
-    const patient = await patientRepository.create({
+    const user = await patientRepository.create({
       ...data,
       hashedPassword,
     });
@@ -99,110 +91,114 @@ export class AuthService {
     return {
       message:
         "Registration completed successfully. Please accept the terms and conditions to activate your account.",
-      patient: this.toPatientResponse(patient),
+      user: this.toUserResponse(user),
     };
   }
 
-  // Step 4: Accept terms and activate account
   async acceptTerms(
-    data: AcceptTermsDto
-  ): Promise<{ message: string; patient: PatientResponse }> {
-    const { email } = data;
-
-    // Find patient
-    const patient = await patientRepository.findByEmail(email);
-    if (!patient) {
-      throw new NotFoundError("Patient not found");
+    userId: string,
+    _data: AcceptTermsDto
+  ): Promise<{ message: string }> {
+    const user = await patientRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundError("User not found");
     }
 
-    if (patient.termsAccepted) {
+    const hasAccepted = await patientRepository.hasAcceptedTerms(userId);
+    if (hasAccepted) {
       throw new BadRequestError("Terms already accepted");
     }
 
-    // Accept terms
-    const updatedPatient = await patientRepository.acceptTerms(email);
+    // Get the latest terms version
+    const latestTerms = await prisma.termsVersion.findFirst({
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!latestTerms) {
+      throw new NotFoundError("Terms version not found");
+    }
+
+    await patientRepository.acceptTerms(userId, latestTerms.id);
 
     // Send welcome email
-    await emailService.sendWelcomeEmail(
-      updatedPatient.email,
-      updatedPatient.fullName,
-      updatedPatient.patientId
-    );
+    if (user.patientProfile) {
+      const fullName = `${user.patientProfile.firstName} ${user.patientProfile.lastName}`;
+      await emailService.sendWelcomeEmail(
+        user.email,
+        fullName,
+        user.patientProfile.qrCode
+      );
+    }
 
     return {
       message: "Terms accepted successfully. Welcome to Curafile!",
-      patient: this.toPatientResponse(updatedPatient),
     };
   }
 
-  // Login
   async login(data: LoginDto): Promise<AuthResponse> {
     const { email, password } = data;
 
-    // Find patient
-    const patient = await patientRepository.findByEmail(email);
-    if (!patient) {
+    const user = await patientRepository.findByEmail(email);
+    if (!user) {
       throw new UnauthorizedError("Invalid email or password");
     }
 
-    // Check if patient is active - if not, reactivate on login
-    if (!patient.isActive) {
-      // Auto-reactivate account on successful login
-      await patientRepository.reactivate(patient.id);
-      logger.info(`Patient ${patient.email} reactivated account via login`);
+    if (!user.isActive || user.isDeleted) {
+      await patientRepository.reactivate(user.id);
+      logger.info(`User ${user.email} reactivated account via login`);
     }
 
-    // Check if terms were accepted
-    if (!patient.termsAccepted) {
+    const hasAcceptedTerms = await patientRepository.hasAcceptedTerms(user.id);
+    if (!hasAcceptedTerms) {
       throw new UnauthorizedError(
         "Please accept the terms and conditions to complete registration"
       );
     }
 
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(password, patient.password);
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
       throw new UnauthorizedError("Invalid email or password");
     }
 
-    // Generate JWT token
-    const token = this.generateToken(patient);
+    await patientRepository.updateLastLogin(user.id);
+
+    const token = this.generateToken(user);
 
     return {
-      patient: this.toPatientResponse(patient),
+      user: this.toUserResponse(user),
       token,
     };
   }
 
-  // Helper: Generate JWT token
-  private generateToken(patient: Patient): string {
+  private generateToken(user: UserWithProfile): string {
     const payload = {
-      id: patient.id,
-      patientId: patient.patientId,
-      email: patient.email,
+      id: user.id,
+      email: user.email,
       role: "PATIENT",
     };
 
-    // @ts-ignore - JWT expiresIn accepts string from env
     return jwt.sign(payload, env.JWT_SECRET, {
       expiresIn: env.JWT_EXPIRES_IN,
-    });
+    } as jwt.SignOptions);
   }
 
-  // Helper: Convert Patient to PatientResponse
-  private toPatientResponse(patient: Patient): PatientResponse {
+  private toUserResponse(user: UserWithProfile): UserResponse {
     return {
-      id: patient.id,
-      patientId: patient.patientId,
-      fullName: patient.fullName,
-      email: patient.email,
-      phoneNumber: patient.phoneNumber,
-      countryResidence: patient.countryResidence || "",
-      nationality: patient.nationality,
-      emailVerified: patient.emailVerified,
-      termsAccepted: patient.termsAccepted,
-      isActive: patient.isActive,
-      createdAt: patient.createdAt,
+      id: user.id,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      isEmailVerified: user.isEmailVerified,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      profile: user.patientProfile
+        ? {
+            id: user.patientProfile.id,
+            firstName: user.patientProfile.firstName,
+            lastName: user.patientProfile.lastName,
+            nationality: user.patientProfile.nationality,
+            qrCode: user.patientProfile.qrCode,
+          }
+        : null,
     };
   }
 }

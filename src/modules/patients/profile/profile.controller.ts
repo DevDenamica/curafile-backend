@@ -3,18 +3,16 @@ import profileService from "./profile.service";
 import { updatePatientProfileSchema } from "./profile.dto";
 
 export class ProfileController {
-  // GET /api/patients/profile
   async getProfile(req: Request, res: Response): Promise<void> {
-    const patientId = req.user?.id!; // Will be set by auth middleware
-    const result = await profileService.getProfile(patientId);
+    const userId = req.user!.id;
+    const result = await profileService.getProfile(userId);
     res.status(200).json(result);
   }
 
-  // PUT /api/patients/profile
   async updateProfile(req: Request, res: Response): Promise<void> {
-    const patientId = req.user?.id!; // Will be set by auth middleware
+    const userId = req.user!.id;
     const data = updatePatientProfileSchema.parse(req.body);
-    const result = await profileService.updateProfile(patientId, data);
+    const result = await profileService.updateProfile(userId, data);
     res.status(200).json(result);
   }
 }
