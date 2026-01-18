@@ -1,15 +1,15 @@
-import express, { Application } from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import 'express-async-errors';
-import { env } from '@config/env';
-import logger from '@shared/utils/logger';
-import errorHandler from '@shared/middlewares/errorHandler';
-import notFoundHandler from '@shared/middlewares/notFound';
+import express, { Application } from "express";
+import cors from "cors";
+import helmet from "helmet";
+import "express-async-errors";
+import { env } from "@config/env";
+import logger from "@shared/utils/logger";
+import errorHandler from "@shared/middlewares/errorHandler";
+import notFoundHandler from "@shared/middlewares/notFound";
 
 // Routes
-import healthRoutes from '@modules/health/health.routes';
-import patientRoutes from '@modules/patients';
+import healthRoutes from "@modules/health/health.routes";
+import patientRoutes from "@modules/patients";
 
 class App {
   public app: Application;
@@ -45,11 +45,19 @@ class App {
   }
 
   private initializeRoutes(): void {
+    this.app.get("/", (_req, res) => {
+      res.status(200).json({
+        name: "Curafile Backend",
+        status: "Running",
+        version: '1.0.0'
+      });
+    });
+
     // Health check
-    this.app.use('/api/health', healthRoutes);
+    this.app.use("/api/health", healthRoutes);
 
     // Patient routes
-    this.app.use('/api/patients', patientRoutes);
+    this.app.use("/api/patients", patientRoutes);
   }
 
   private initializeErrorHandling(): void {
