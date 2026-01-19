@@ -15,7 +15,7 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default("7d"),
   CORS_ORIGIN: z.string().default("*"),
   LOG_LEVEL: z.enum(["error", "warn", "info", "http", "debug"]).default("info"),
-  // Email - supports both SMTP (local) and Resend API (cloud)
+  // Email - SMTP for local, Resend for cloud
   EMAIL_PROVIDER: z.enum(["smtp", "resend"]).default("smtp"),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_HOST: z.string().optional(),

@@ -26,9 +26,9 @@ export class EmailService {
           user: env.EMAIL_USER,
           pass: env.EMAIL_PASSWORD,
         },
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 10000,
+        connectionTimeout: 30000,
+        greetingTimeout: 30000,
+        socketTimeout: 30000,
       });
       logger.info("Email service initialized with SMTP");
     }
@@ -96,8 +96,8 @@ export class EmailService {
 
       await this.sendEmail(email, "Verify Your Email - Curafile", html);
       logger.info(`OTP email sent to ${email}`);
-    } catch (error) {
-      logger.error("Error sending OTP email:", error);
+    } catch (error: any) {
+      logger.error(`Error sending OTP email to ${email}:`, error.message);
       throw new Error("Failed to send verification email");
     }
   }
@@ -147,64 +147,62 @@ export class EmailService {
 
       await this.sendEmail(email, "Welcome to Curafile!", html);
       logger.info(`Welcome email sent to ${email}`);
-    } catch (error) {
-      logger.error("Error sending welcome email:", error);
-      // Don't throw error here - welcome email is not critical
+    } catch (error: any) {
+      logger.error(`Error sending welcome email to ${email}:`, error.message);
     }
   }
 
   async sendPasswordResetLink(email: string, resetToken: string): Promise<void> {
     try {
-      const frontendUrl = env.FRONTEND_URL || 'http://localhost:3001';
+      const frontendUrl = env.FRONTEND_URL || "http://localhost:3001";
       const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
 
       const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background-color: #FF6B6B; color: white; padding: 20px; text-align: center; }
-          .content { padding: 20px; background-color: #f9f9f9; }
-          .button { display: inline-block; padding: 15px 30px; background-color: #FF6B6B; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0; }
-          .button:hover { background-color: #ff5252; }
-          .link-box { background-color: #fff; border: 1px solid #ddd; padding: 15px; margin: 20px 0; word-break: break-all; }
-          .warning { background-color: #FFF3CD; border-left: 4px solid #FFC107; padding: 12px; margin: 20px 0; }
-          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Password Reset Request</h1>
-          </div>
-          <div class="content">
-            <p>Hello,</p>
-            <p>We received a request to reset your password for your Curafile account. Click the button below to reset your password:</p>
-            <div style="text-align: center;">
-              <a href="${resetLink}" class="button">Reset Your Password</a>
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #FF6B6B; color: white; padding: 20px; text-align: center; }
+            .content { padding: 20px; background-color: #f9f9f9; }
+            .button { display: inline-block; padding: 15px 30px; background-color: #FF6B6B; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0; }
+            .link-box { background-color: #fff; border: 1px solid #ddd; padding: 15px; margin: 20px 0; word-break: break-all; }
+            .warning { background-color: #FFF3CD; border-left: 4px solid #FFC107; padding: 12px; margin: 20px 0; }
+            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Password Reset Request</h1>
             </div>
-            <p>Or copy and paste this link into your browser:</p>
-            <div class="link-box">${resetLink}</div>
-            <p>This link will expire in ${env.OTP_EXPIRY_MINUTES} minutes for security reasons.</p>
-            <div class="warning">
-              <strong>⚠️ Security Notice:</strong> If you didn't request this password reset, please ignore this email and ensure your account is secure.
+            <div class="content">
+              <p>Hello,</p>
+              <p>We received a request to reset your password for your Curafile account. Click the button below to reset your password:</p>
+              <div style="text-align: center;">
+                <a href="${resetLink}" class="button">Reset Your Password</a>
+              </div>
+              <p>Or copy and paste this link into your browser:</p>
+              <div class="link-box">${resetLink}</div>
+              <p>This link will expire in ${env.OTP_EXPIRY_MINUTES} minutes for security reasons.</p>
+              <div class="warning">
+                <strong>Warning:</strong> If you didn't request this password reset, please ignore this email.
+              </div>
+              <p>Best regards,<br>The Curafile Team</p>
             </div>
-            <p>Best regards,<br>The Curafile Team</p>
+            <div class="footer">
+              <p>This is an automated email. Please do not reply to this message.</p>
+            </div>
           </div>
-          <div class="footer">
-            <p>This is an automated email. Please do not reply to this message.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+        </body>
+        </html>
+      `;
 
       await this.sendEmail(email, "Reset Your Password - Curafile", html);
       logger.info(`Password reset link email sent to ${email}`);
-    } catch (error) {
-      logger.error("Error sending password reset link email:", error);
+    } catch (error: any) {
+      logger.error(`Error sending password reset email to ${email}:`, error.message);
       throw new Error("Failed to send password reset email");
     }
   }
