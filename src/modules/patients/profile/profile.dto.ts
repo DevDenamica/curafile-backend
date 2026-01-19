@@ -20,9 +20,18 @@ export const updatePatientProfileSchema = z.object({
   nationalId: z.string().optional(),
   nationality: z.string().optional(),
   profilePicture: z.string().url().optional(),
+  // Emergency Contact
   emergencyContactName: z.string().optional(),
   emergencyContactPhone: z.string().optional(),
   emergencyContactRelation: z.string().optional(),
+  // Insurance
+  insuranceCompanyName: z.string().optional(),
+  insurancePolicyNumber: z.string().optional(),
+  insuranceMemberNumber: z.string().optional(),
+  insuranceExpiryDate: z.string().datetime().optional(),
+  insuranceCardFrontUrl: z.string().url().optional(),
+  insuranceCardBackUrl: z.string().url().optional(),
+  // Medical History
   allergies: z.array(z.string()).optional(),
   chronicConditions: z.array(z.string()).optional(),
   currentMedications: z.array(z.string()).optional(),
@@ -34,7 +43,7 @@ export type UpdatePatientProfileDto = z.infer<
 
 export interface PatientProfileResponse {
   id: string;
-  visitorId: string;
+  userId: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -45,13 +54,24 @@ export interface PatientProfileResponse {
   nationalId: string | null;
   nationality: string | null;
   profilePicture: string | null;
+  // Emergency Contact
   emergencyContactName: string | null;
   emergencyContactPhone: string | null;
   emergencyContactRelation: string | null;
+  // Insurance
+  insuranceCompanyName: string | null;
+  insurancePolicyNumber: string | null;
+  insuranceMemberNumber: string | null;
+  insuranceExpiryDate: Date | null;
+  insuranceCardFrontUrl: string | null;
+  insuranceCardBackUrl: string | null;
+  // Medical History
   allergies: string[] | null;
   chronicConditions: string[] | null;
   currentMedications: string[] | null;
+  // QR Code
   qrCode: string;
+  // User fields
   isEmailVerified: boolean;
   isActive: boolean;
   createdAt: Date;

@@ -82,13 +82,16 @@ export class PatientRepository {
     userId: string,
     data: UpdatePatientProfileDto
   ): Promise<PatientProfile> {
-    const { dateOfBirth, ...restData } = data;
+    const { dateOfBirth, insuranceExpiryDate, ...restData } = data;
 
     return prisma.patientProfile.update({
       where: { userId },
       data: {
         ...restData,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+        insuranceExpiryDate: insuranceExpiryDate
+          ? new Date(insuranceExpiryDate)
+          : undefined,
       },
     });
   }

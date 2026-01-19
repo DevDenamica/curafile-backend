@@ -40,7 +40,7 @@ export class ProfileService {
     const profile = user.patientProfile!;
     return {
       id: profile.id,
-      visitorId: user.id,
+      userId: user.id,
       firstName: profile.firstName,
       lastName: profile.lastName,
       email: user.email,
@@ -54,6 +54,12 @@ export class ProfileService {
       emergencyContactName: profile.emergencyContactName,
       emergencyContactPhone: profile.emergencyContactPhone,
       emergencyContactRelation: profile.emergencyContactRelation,
+      insuranceCompanyName: profile.insuranceCompanyName,
+      insurancePolicyNumber: profile.insurancePolicyNumber,
+      insuranceMemberNumber: profile.insuranceMemberNumber,
+      insuranceExpiryDate: profile.insuranceExpiryDate,
+      insuranceCardFrontUrl: profile.insuranceCardFrontUrl,
+      insuranceCardBackUrl: profile.insuranceCardBackUrl,
       allergies: profile.allergies as string[] | null,
       chronicConditions: profile.chronicConditions as string[] | null,
       currentMedications: profile.currentMedications as string[] | null,

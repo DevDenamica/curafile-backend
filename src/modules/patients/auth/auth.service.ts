@@ -42,7 +42,7 @@ export class AuthService {
   }
 
   async verifyOtp(
-    data: VerifyOtpDto
+    data: VerifyOtpDto,
   ): Promise<{ message: string; verified: boolean }> {
     const { email, code } = data;
 
@@ -60,14 +60,14 @@ export class AuthService {
   }
 
   async completeRegistration(
-    data: CompleteRegistrationDto
+    data: CompleteRegistrationDto,
   ): Promise<{ message: string; user: UserResponse }> {
     const { email, password } = data;
 
     const hasVerifiedEmail = await otpService.hasVerifiedEmail(email);
     if (!hasVerifiedEmail) {
       throw new BadRequestError(
-        "Email not verified. Please verify your email first."
+        "Email not verified. Please verify your email first.",
       );
     }
 
@@ -97,7 +97,7 @@ export class AuthService {
 
   async acceptTerms(
     userId: string,
-    _data: AcceptTermsDto
+    _data: AcceptTermsDto,
   ): Promise<{ message: string }> {
     const user = await patientRepository.findById(userId);
     if (!user) {
@@ -126,7 +126,7 @@ export class AuthService {
       await emailService.sendWelcomeEmail(
         user.email,
         fullName,
-        user.patientProfile.qrCode
+        user.patientProfile.qrCode,
       );
     }
 
@@ -151,7 +151,7 @@ export class AuthService {
     const hasAcceptedTerms = await patientRepository.hasAcceptedTerms(user.id);
     if (!hasAcceptedTerms) {
       throw new UnauthorizedError(
-        "Please accept the terms and conditions to complete registration"
+        "Please accept the terms and conditions to complete registration",
       );
     }
 

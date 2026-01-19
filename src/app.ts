@@ -49,7 +49,7 @@ class App {
       res.status(200).json({
         name: "Curafile Backend",
         status: "Running",
-        version: '1.0.0'
+        version: "1.0.0",
       });
     });
 
