@@ -36,7 +36,8 @@ export class EmailService {
 
   private async sendEmail(to: string, subject: string, html: string): Promise<void> {
     if (this.provider === "resend" && this.resend) {
-      const { error } = await this.resend.emails.send({
+      logger.info(`Sending email via Resend to ${to}`);
+      const { data, error } = await this.resend.emails.send({
         from: env.EMAIL_FROM,
         to,
         subject,
@@ -44,8 +45,10 @@ export class EmailService {
       });
 
       if (error) {
-        throw new Error(`Resend error: ${error.message}`);
+        logger.error("Resend API error:", JSON.stringify(error));
+        throw new Error(`Resend error: ${error.message || JSON.stringify(error)}`);
       }
+      logger.info(`Resend email sent successfully, id: ${data?.id}`);
     } else if (this.transporter) {
       await this.transporter.sendMail({
         from: env.EMAIL_FROM,
