@@ -18,12 +18,15 @@ const calculateAge = (dateOfBirth: Date | null): number | null => {
 
 export class ProfileService {
   async getProfile(userId: string): Promise<PatientProfileResponse> {
+    console.log("ProfileService.getProfile called for userId:", userId);
     const user = await patientRepository.findById(userId);
     if (!user || !user.patientProfile) {
       throw new NotFoundError("Patient profile not found");
     }
 
-    return this.toProfileResponse(user);
+    const response = this.toProfileResponse(user);
+    console.log("ProfileService.getProfile returning:", JSON.stringify(response, null, 2));
+    return response;
   }
 
   async updateProfile(
