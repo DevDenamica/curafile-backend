@@ -42,13 +42,13 @@ export type UpdatePatientProfileDto = z.infer<
 >;
 
 export interface PatientProfileResponse {
-  id: string;
-  userId: string;
+  patientId: string;
   firstName: string;
   lastName: string;
   email: string;
   phoneNumber: string | null;
   dateOfBirth: Date | null;
+  age: number | null;
   gender: string | null;
   bloodType: string | null;
   nationalId: string | null;
@@ -69,8 +69,9 @@ export interface PatientProfileResponse {
   allergies: string[] | null;
   chronicConditions: string[] | null;
   currentMedications: string[] | null;
+  covidVaccinated: boolean;
   // QR Code
-  qrCode: string;
+  qrCodeUrl: string | null;
   // User fields
   isEmailVerified: boolean;
   isActive: boolean;

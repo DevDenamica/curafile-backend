@@ -1,11 +1,20 @@
 import patientRepository, {
   UserWithProfile,
 } from "../shared/patient.repository";
-import {
-  UpdatePatientProfileDto,
-  PatientProfileResponse,
-} from "./profile.dto";
+import { UpdatePatientProfileDto, PatientProfileResponse } from "./profile.dto";
 import { NotFoundError } from "@shared/exceptions/AppError";
+
+// Helper function to calculate age from date of birth
+const calculateAge = (dateOfBirth: Date | null): number | null => {
+  if (!dateOfBirth) return null;
+  const today = new Date();
+  let age = today.getFullYear() - dateOfBirth.getFullYear();
+  const monthDiff = today.getMonth() - dateOfBirth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dateOfBirth.getDate())) {
+    age--;
+  }
+  return age;
+};
 
 export class ProfileService {
   async getProfile(userId: string): Promise<PatientProfileResponse> {
@@ -19,7 +28,7 @@ export class ProfileService {
 
   async updateProfile(
     userId: string,
-    data: UpdatePatientProfileDto
+    data: UpdatePatientProfileDto,
   ): Promise<PatientProfileResponse> {
     const existingUser = await patientRepository.findById(userId);
     if (!existingUser || !existingUser.patientProfile) {
@@ -39,13 +48,13 @@ export class ProfileService {
   private toProfileResponse(user: UserWithProfile): PatientProfileResponse {
     const profile = user.patientProfile!;
     return {
-      id: profile.id,
-      userId: user.id,
+      patientId: profile.qrCode,
       firstName: profile.firstName,
       lastName: profile.lastName,
       email: user.email,
       phoneNumber: user.phoneNumber,
       dateOfBirth: profile.dateOfBirth,
+      age: calculateAge(profile.dateOfBirth),
       gender: profile.gender,
       bloodType: profile.bloodType,
       nationalId: profile.nationalId,
@@ -63,7 +72,8 @@ export class ProfileService {
       allergies: profile.allergies as string[] | null,
       chronicConditions: profile.chronicConditions as string[] | null,
       currentMedications: profile.currentMedications as string[] | null,
-      qrCode: profile.qrCode,
+      covidVaccinated: profile.covidVaccinated,
+      qrCodeUrl: profile.qrCodeImageUrl,
       isEmailVerified: user.isEmailVerified,
       isActive: user.isActive,
       createdAt: user.createdAt,

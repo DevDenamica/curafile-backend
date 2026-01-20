@@ -61,7 +61,7 @@ export class AuthService {
 
   async completeRegistration(
     data: CompleteRegistrationDto,
-  ): Promise<{ message: string; user: UserResponse }> {
+  ): Promise<{ message: string; user: UserResponse; token: string }> {
     const { email, password } = data;
 
     const hasVerifiedEmail = await otpService.hasVerifiedEmail(email);
@@ -88,10 +88,14 @@ export class AuthService {
       hashedPassword,
     });
 
+    // Generate token so user can accept terms
+    const token = this.generateToken(user);
+
     return {
       message:
         "Registration completed successfully. Please accept the terms and conditions to activate your account.",
       user: this.toUserResponse(user),
+      token,
     };
   }
 
@@ -148,25 +152,24 @@ export class AuthService {
       logger.info(`User ${user.email} reactivated account via login`);
     }
 
-    const hasAcceptedTerms = await patientRepository.hasAcceptedTerms(user.id);
-    if (!hasAcceptedTerms) {
-      throw new UnauthorizedError(
-        "Please accept the terms and conditions to complete registration",
-      );
-    }
-
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
       throw new UnauthorizedError("Invalid email or password");
     }
 
-    await patientRepository.updateLastLogin(user.id);
+    const termsAccepted = await patientRepository.hasAcceptedTerms(user.id);
+
+    // Only update last login if terms are accepted
+    if (termsAccepted) {
+      await patientRepository.updateLastLogin(user.id);
+    }
 
     const token = this.generateToken(user);
 
     return {
       user: this.toUserResponse(user),
       token,
+      termsAccepted,
     };
   }
 
@@ -182,9 +185,20 @@ export class AuthService {
     } as jwt.SignOptions);
   }
 
+  private calculateAge(dateOfBirth: Date | null): number | null {
+    if (!dateOfBirth) return null;
+    const today = new Date();
+    let age = today.getFullYear() - dateOfBirth.getFullYear();
+    const monthDiff = today.getMonth() - dateOfBirth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dateOfBirth.getDate())) {
+      age--;
+    }
+    return age;
+  }
+
   private toUserResponse(user: UserWithProfile): UserResponse {
     return {
-      id: user.id,
+      patientId: user.patientProfile?.qrCode ?? "",
       email: user.email,
       phoneNumber: user.phoneNumber,
       isEmailVerified: user.isEmailVerified,
@@ -192,11 +206,13 @@ export class AuthService {
       createdAt: user.createdAt,
       profile: user.patientProfile
         ? {
-            id: user.patientProfile.id,
             firstName: user.patientProfile.firstName,
             lastName: user.patientProfile.lastName,
+            dateOfBirth: user.patientProfile.dateOfBirth,
+            age: this.calculateAge(user.patientProfile.dateOfBirth),
             nationality: user.patientProfile.nationality,
-            qrCode: user.patientProfile.qrCode,
+            covidVaccinated: user.patientProfile.covidVaccinated,
+            qrCodeUrl: user.patientProfile.qrCodeImageUrl,
           }
         : null,
     };

@@ -2,7 +2,7 @@ import prisma from "@config/database";
 import { User, PatientProfile, RoleType } from "@prisma/client";
 import { CompleteRegistrationDto } from "../auth/auth.dto";
 import { UpdatePatientProfileDto } from "../profile/profile.dto";
-import { v4 as uuidv4 } from "uuid";
+import qrCodeService from "@shared/services/qrcode.service";
 
 // Combined type for User with PatientProfile
 export type UserWithProfile = User & {
@@ -24,11 +24,34 @@ export class PatientRepository {
     });
   }
 
+  private async generatePatientId(): Promise<string> {
+    // Generate random numeric ID: PAT-XXXXXXXX (8 random digits)
+    let patientId: string;
+    let exists = true;
+
+    // Keep generating until we get a unique ID
+    while (exists) {
+      const randomNumber = Math.floor(10000000 + Math.random() * 90000000); // 8-digit number
+      patientId = `PAT-${randomNumber}`;
+
+      // Check if this ID already exists
+      const existing = await prisma.patientProfile.findFirst({
+        where: { qrCode: patientId },
+      });
+      exists = !!existing;
+    }
+
+    return patientId!;
+  }
+
   async create(
     data: CompleteRegistrationDto & { hashedPassword: string }
   ): Promise<UserWithProfile> {
-    // Generate unique QR code for patient profile
-    const qrCode = `PAT-${uuidv4().slice(0, 8).toUpperCase()}`;
+    // Generate sequential patient ID
+    const patientId = await this.generatePatientId();
+
+    // Generate QR code image as base64 data URL
+    const qrCodeImageUrl = await qrCodeService.generateDataUrl(patientId);
 
     return prisma.user.create({
       data: {
@@ -46,7 +69,11 @@ export class PatientRepository {
             firstName: data.firstName,
             lastName: data.lastName,
             nationality: data.nationality,
-            qrCode,
+            dateOfBirth: new Date(data.dateOfBirth),
+            covidVaccinated: data.covidVaccinated,
+            qrCode: patientId,
+            qrCodeImageUrl,
+            qrCodeGeneratedAt: new Date(),
           },
         },
       },

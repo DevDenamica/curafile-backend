@@ -736,6 +736,7 @@ model PatientProfile {
   allergies          Json?
   chronicConditions  Json? @map("chronic_conditions")
   currentMedications Json? @map("current_medications")
+  covidVaccinated    Boolean @default(false) @map("covid_vaccinated")
 
   // QR Code
   qrCode            String    @unique @map("qr_code")

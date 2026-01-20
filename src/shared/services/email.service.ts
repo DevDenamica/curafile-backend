@@ -1,64 +1,33 @@
 import nodemailer, { Transporter } from "nodemailer";
-import { Resend } from "resend";
 import { env } from "@config/env";
 import logger from "@shared/utils/logger";
 
 export class EmailService {
-  private transporter: Transporter | null = null;
-  private resend: Resend | null = null;
-  private provider: "smtp" | "resend";
+  private transporter: Transporter;
 
   constructor() {
-    this.provider = env.EMAIL_PROVIDER;
-
-    if (this.provider === "resend") {
-      if (!env.RESEND_API_KEY) {
-        throw new Error("RESEND_API_KEY is required when EMAIL_PROVIDER is resend");
-      }
-      this.resend = new Resend(env.RESEND_API_KEY);
-      logger.info("Email service initialized with Resend API");
-    } else {
-      this.transporter = nodemailer.createTransport({
-        host: env.EMAIL_HOST,
-        port: parseInt(env.EMAIL_PORT),
-        secure: false,
-        auth: {
-          user: env.EMAIL_USER,
-          pass: env.EMAIL_PASSWORD,
-        },
-        connectionTimeout: 30000,
-        greetingTimeout: 30000,
-        socketTimeout: 30000,
-      });
-      logger.info("Email service initialized with SMTP");
-    }
+    this.transporter = nodemailer.createTransport({
+      host: env.EMAIL_HOST,
+      port: parseInt(env.EMAIL_PORT),
+      secure: false,
+      auth: {
+        user: env.EMAIL_USER,
+        pass: env.EMAIL_PASSWORD,
+      },
+      connectionTimeout: 30000,
+      greetingTimeout: 30000,
+      socketTimeout: 30000,
+    });
+    logger.info("Email service initialized with SMTP");
   }
 
   private async sendEmail(to: string, subject: string, html: string): Promise<void> {
-    if (this.provider === "resend" && this.resend) {
-      logger.info(`Sending email via Resend to ${to}`);
-      const { data, error } = await this.resend.emails.send({
-        from: env.EMAIL_FROM,
-        to,
-        subject,
-        html,
-      });
-
-      if (error) {
-        logger.error("Resend API error:", JSON.stringify(error));
-        throw new Error(`Resend error: ${error.message || JSON.stringify(error)}`);
-      }
-      logger.info(`Resend email sent successfully, id: ${data?.id}`);
-    } else if (this.transporter) {
-      await this.transporter.sendMail({
-        from: env.EMAIL_FROM,
-        to,
-        subject,
-        html,
-      });
-    } else {
-      throw new Error("No email provider configured");
-    }
+    await this.transporter.sendMail({
+      from: env.EMAIL_FROM,
+      to,
+      subject,
+      html,
+    });
   }
 
   async sendOTP(email: string, otp: string): Promise<void> {

@@ -15,6 +15,17 @@ export const verifyOtpSchema = z.object({
 
 export type VerifyOtpDto = z.infer<typeof verifyOtpSchema>;
 
+// Helper function to calculate age
+const calculateAge = (dateOfBirth: Date): number => {
+  const today = new Date();
+  let age = today.getFullYear() - dateOfBirth.getFullYear();
+  const monthDiff = today.getMonth() - dateOfBirth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dateOfBirth.getDate())) {
+    age--;
+  }
+  return age;
+};
+
 // Step 3: Complete registration with details
 export const completeRegistrationSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -25,6 +36,17 @@ export const completeRegistrationSchema = z.object({
     .string()
     .min(10, "Phone number must be at least 10 characters"),
   nationality: z.string().min(2, "Nationality is required"),
+  dateOfBirth: z
+    .string()
+    .datetime("Invalid date format")
+    .refine(
+      (date) => {
+        const age = calculateAge(new Date(date));
+        return age >= 18;
+      },
+      { message: "You must be at least 18 years old to register" }
+    ),
+  covidVaccinated: z.boolean(),
 });
 
 export type CompleteRegistrationDto = z.infer<
@@ -50,18 +72,20 @@ export type LoginDto = z.infer<typeof loginSchema>;
 
 // User response (for auth)
 export interface UserResponse {
-  id: string;
+  patientId: string;
   email: string;
   phoneNumber: string | null;
   isEmailVerified: boolean;
   isActive: boolean;
   createdAt: Date;
   profile: {
-    id: string;
     firstName: string;
     lastName: string;
+    dateOfBirth: Date | null;
+    age: number | null;
     nationality: string | null;
-    qrCode: string;
+    covidVaccinated: boolean;
+    qrCodeUrl: string | null;
   } | null;
 }
 
@@ -69,4 +93,5 @@ export interface UserResponse {
 export interface AuthResponse {
   user: UserResponse;
   token: string;
+  termsAccepted: boolean;
 }
