@@ -1,4 +1,4 @@
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import patientRepository from "../shared/patient.repository";
 import logoutService from "../auth/logout.service";
 import {

@@ -1,4 +1,4 @@
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import patientRepository from "../shared/patient.repository";
 import emailService from "@shared/services/email.service";
 import passwordResetService from "@shared/services/passwordReset.service";

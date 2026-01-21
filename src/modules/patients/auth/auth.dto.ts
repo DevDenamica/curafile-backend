@@ -20,7 +20,10 @@ const calculateAge = (dateOfBirth: Date): number => {
   const today = new Date();
   let age = today.getFullYear() - dateOfBirth.getFullYear();
   const monthDiff = today.getMonth() - dateOfBirth.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dateOfBirth.getDate())) {
+  if (
+    monthDiff < 0 ||
+    (monthDiff === 0 && today.getDate() < dateOfBirth.getDate())
+  ) {
     age--;
   }
   return age;
@@ -38,13 +41,13 @@ export const completeRegistrationSchema = z.object({
   nationality: z.string().min(2, "Nationality is required"),
   dateOfBirth: z
     .string()
-    .datetime("Invalid date format")
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Date format must be YYYY-MM-DD")
     .refine(
       (date) => {
-        const age = calculateAge(new Date(date));
+        const age = calculateAge(new Date(date + "T00:00:00Z"));
         return age >= 18;
       },
-      { message: "You must be at least 18 years old to register" }
+      { message: "You must be at least 18 years old to register" },
     ),
   covidVaccinated: z.boolean(),
 });

@@ -1,4 +1,7 @@
-import "module-alias/register";
+// Only register module-alias in production (for compiled JS)
+if (process.env.NODE_ENV === "production") {
+  require("module-alias/register");
+}
 import app from "./app";
 import { env } from "@config/env";
 import { connectDatabase, disconnectDatabase } from "@config/database";
