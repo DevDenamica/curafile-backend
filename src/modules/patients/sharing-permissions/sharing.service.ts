@@ -7,7 +7,12 @@ import {
   SharedWithDetails,
   ReceivedPermissionResponse,
 } from "./sharing.dto";
-import { NotFoundError } from "@/shared/exceptions/AppError";
+import {
+  NotFoundError,
+  BadRequestError,
+  ConflictError,
+  ForbiddenError,
+} from "@/shared/exceptions/AppError";
 import logger from "@shared/utils/logger";
 
 export class SharingService {
@@ -77,13 +82,31 @@ export class SharingService {
       // Validate and convert sharedWithId for FAMILY_MEMBER type
       // User passes patientId (PAT-XXXXXXXX), we store internal profile ID
       if (data.sharedWithType === "FAMILY_MEMBER" && data.sharedWithId) {
-        const familyMember = await sharingRepository.getPatientProfileByPatientId(
-          data.sharedWithId,
-        );
+        const familyMember =
+          await sharingRepository.getPatientProfileByPatientId(data.sharedWithId);
         if (!familyMember) {
-          throw new NotFoundError("Family member not found with this patient ID");
+          throw new NotFoundError(
+            "Family member not found with this patient ID",
+          );
         }
         sharedWithInternalId = familyMember.id;
+
+        // Prevent sharing with yourself
+        if (sharedWithInternalId === user.patientProfile.id) {
+          throw new BadRequestError("You cannot share records with yourself");
+        }
+      }
+
+      // Check for duplicate permission
+      const existingPermission = await sharingRepository.findExistingPermission(
+        user.patientProfile.id,
+        sharedWithInternalId,
+        data.recordType,
+      );
+      if (existingPermission) {
+        throw new ConflictError(
+          "A sharing permission already exists for this recipient and record type",
+        );
       }
 
       const permission = await sharingRepository.createSharingPermission(
@@ -222,6 +245,54 @@ export class SharingService {
       }));
     } catch (error: any) {
       logger.error("Error fetching received permissions:", error.message);
+      throw error;
+    }
+  }
+
+  // Check if user has permission to access another patient's records
+  // Returns the permission if access is granted, throws ForbiddenError if not
+  async verifyAccess(
+    requesterUserId: string,
+    ownerPatientId: string, // PAT-XXXXXXXX format
+    recordType: string,
+  ): Promise<{ canView: boolean; canDownload: boolean; ownerProfileId: string }> {
+    try {
+      const requester = await patientRepository.findById(requesterUserId);
+      if (!requester || !requester.patientProfile) {
+        throw new NotFoundError("Patient profile not found");
+      }
+
+      const owner =
+        await sharingRepository.getPatientProfileByPatientId(ownerPatientId);
+      if (!owner) {
+        throw new NotFoundError("Patient not found with this ID");
+      }
+
+      const permission = await sharingRepository.checkPermission(
+        owner.id,
+        requester.patientProfile.id,
+        recordType,
+      );
+
+      if (!permission) {
+        throw new ForbiddenError(
+          "You do not have permission to access this patient's records",
+        );
+      }
+
+      if (!permission.canView) {
+        throw new ForbiddenError(
+          "You do not have view permission for this patient's records",
+        );
+      }
+
+      return {
+        canView: permission.canView,
+        canDownload: permission.canDownload,
+        ownerProfileId: owner.id,
+      };
+    } catch (error: any) {
+      logger.error("Error verifying access permission:", error.message);
       throw error;
     }
   }

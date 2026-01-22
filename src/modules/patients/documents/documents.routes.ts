@@ -15,6 +15,11 @@ router.get(
   "/",
   documentsController.getMedicalDocuments.bind(documentsController),
 );
+// Get shared patient's documents (requires permission)
+router.get(
+  "/shared/:patientId",
+  documentsController.getSharedPatientDocuments.bind(documentsController),
+);
 router.patch(
   "/:documentId",
   documentsController.updateMedicalDocument.bind(documentsController),

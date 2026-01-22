@@ -1,9 +1,11 @@
 import documentsRepository from "./documents.repository";
 import patientRepository from "../shared/patient.repository";
+import sharingService from "../sharing-permissions/sharing.service";
 import {
   UploadMedicalDocumentDto,
   UpdateMedicalDocumentDto,
   MedicalDocumentResponse,
+  SharedMedicalDocumentResponse,
 } from "./documents.dto";
 import { NotFoundError } from "@/shared/exceptions/AppError";
 import logger from "@shared/utils/logger";
@@ -141,6 +143,37 @@ export class DocumentsService {
       );
     } catch (error: any) {
       logger.error("Error deleting medical document:", error.message);
+      throw error;
+    }
+  }
+
+  // Get shared patient's documents (requires permission)
+  async getSharedPatientDocuments(
+    requesterUserId: string,
+    ownerPatientId: string, // PAT-XXXXXXXX format
+  ): Promise<SharedMedicalDocumentResponse[]> {
+    try {
+      // Verify access permission
+      const access = await sharingService.verifyAccess(
+        requesterUserId,
+        ownerPatientId,
+        "MEDICAL_DOCUMENTS",
+      );
+
+      const documents = await documentsRepository.getMedicalDocuments(
+        access.ownerProfileId,
+      );
+
+      return documents.map((doc) => ({
+        id: doc.id,
+        title: doc.title,
+        documentType: doc.documentType,
+        fileUrl: access.canDownload ? doc.fileUrl : undefined,
+        fileType: doc.fileType,
+        uploadedAt: doc.uploadedAt,
+      }));
+    } catch (error: any) {
+      logger.error("Error fetching shared patient documents:", error.message);
       throw error;
     }
   }

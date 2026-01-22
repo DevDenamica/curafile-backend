@@ -15,6 +15,13 @@ router.get(
   "/",
   vaccinationsController.getVaccinationRecords.bind(vaccinationsController),
 );
+// Get shared patient's vaccination records (requires permission)
+router.get(
+  "/shared/:patientId",
+  vaccinationsController.getSharedPatientVaccinations.bind(
+    vaccinationsController,
+  ),
+);
 router.patch(
   "/:recordId",
   vaccinationsController.updateVaccinationRecord.bind(vaccinationsController),

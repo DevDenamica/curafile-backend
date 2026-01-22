@@ -43,6 +43,20 @@ export class VaccinationsController {
     );
     res.status(200).json(result);
   }
+
+  // Get shared patient's vaccination records
+  async getSharedPatientVaccinations(
+    req: Request,
+    res: Response,
+  ): Promise<void> {
+    const userId = req.user!.id;
+    const patientId = req.params.patientId as string;
+    const result = await vaccinationsService.getSharedPatientVaccinations(
+      userId,
+      patientId,
+    );
+    res.status(200).json(result);
+  }
 }
 
 export default new VaccinationsController();

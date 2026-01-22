@@ -1,5 +1,6 @@
 import vaccinationsRepository from "./vaccinations.repository";
 import patientRepository from "../shared/patient.repository";
+import sharingService from "../sharing-permissions/sharing.service";
 import {
   CreateVaccinationRecordDto,
   UpdateVaccinationRecordDto,
@@ -117,6 +118,33 @@ export class VaccinationsService {
       return { message: "Vaccination record deleted successfully" };
     } catch (error: any) {
       logger.error("Error deleting vaccination record:", error.message);
+      throw error;
+    }
+  }
+
+  // Get shared patient's vaccination records (requires permission)
+  async getSharedPatientVaccinations(
+    requesterUserId: string,
+    ownerPatientId: string, // PAT-XXXXXXXX format
+  ): Promise<VaccinationRecordResponse[]> {
+    try {
+      // Verify access permission (vaccinations fall under ALL or could be a separate type)
+      const access = await sharingService.verifyAccess(
+        requesterUserId,
+        ownerPatientId,
+        "ALL", // Vaccinations are typically shared with ALL record type
+      );
+
+      const records = await vaccinationsRepository.getVaccinationRecords(
+        access.ownerProfileId,
+      );
+
+      return records as VaccinationRecordResponse[];
+    } catch (error: any) {
+      logger.error(
+        "Error fetching shared patient vaccinations:",
+        error.message,
+      );
       throw error;
     }
   }

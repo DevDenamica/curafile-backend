@@ -25,3 +25,12 @@ export interface MedicalDocumentResponse {
   fileType: string | null;
   uploadedAt: Date;
 }
+
+export interface SharedMedicalDocumentResponse {
+  id: string;
+  title: string | null;
+  documentType: string | null;
+  fileUrl?: string; // Only included if canDownload is true
+  fileType: string | null;
+  uploadedAt: Date;
+}

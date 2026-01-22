@@ -40,6 +40,17 @@ export class DocumentsController {
       message: "Medical document deleted successfully",
     });
   }
+
+  // Get shared patient's documents
+  async getSharedPatientDocuments(req: Request, res: Response): Promise<void> {
+    const userId = req.user!.id;
+    const patientId = req.params.patientId as string;
+    const result = await documentsService.getSharedPatientDocuments(
+      userId,
+      patientId,
+    );
+    res.status(200).json(result);
+  }
 }
 
 export default new DocumentsController();

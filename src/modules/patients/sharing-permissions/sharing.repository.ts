@@ -1,4 +1,5 @@
 import prisma from "@config/database";
+import { RecordType } from "@prisma/client";
 import {
   CreateSharingPermissionDto,
   UpdateSharingPermissionDto,
@@ -125,6 +126,46 @@ export class SharingRepository {
             },
           },
         },
+      },
+    });
+  }
+
+  // Check if a user has permission to access another patient's records
+  async checkPermission(
+    ownerProfileId: string,
+    requesterProfileId: string,
+    recordType: string,
+  ) {
+    return prisma.medicalRecordSharingPermission.findFirst({
+      where: {
+        patientId: ownerProfileId,
+        sharedWithId: requesterProfileId,
+        revokedAt: null,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+        AND: [
+          {
+            OR: [
+              { recordType: RecordType.ALL },
+              { recordType: recordType as RecordType },
+            ],
+          },
+        ],
+      },
+    });
+  }
+
+  // Check if permission already exists (for duplicate prevention)
+  async findExistingPermission(
+    patientId: string,
+    sharedWithId: string,
+    recordType: string,
+  ) {
+    return prisma.medicalRecordSharingPermission.findFirst({
+      where: {
+        patientId,
+        sharedWithId,
+        recordType: recordType as RecordType,
+        revokedAt: null,
       },
     });
   }
