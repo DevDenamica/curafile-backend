@@ -10,6 +10,7 @@ import notFoundHandler from "@shared/middlewares/notFound";
 // Routes
 import healthRoutes from "@modules/health/health.routes";
 import patientRoutes from "@modules/patients";
+import doctorRoutes from "@modules/doctors";
 
 class App {
   public app: Application;
@@ -28,7 +29,7 @@ class App {
     // CORS
     this.app.use(
       cors({
-        origin: env.CORS_ORIGIN,
+        origin: true,
         credentials: true,
       })
     );
@@ -58,6 +59,9 @@ class App {
 
     // Patient routes
     this.app.use("/api/patients", patientRoutes);
+
+    // Doctor routes
+    this.app.use("/api/doctors", doctorRoutes);
   }
 
   private initializeErrorHandling(): void {

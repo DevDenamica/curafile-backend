@@ -7,13 +7,19 @@ import qrCodeService from "@shared/services/qrcode.service";
 // Combined type for User with PatientProfile
 export type UserWithProfile = User & {
   patientProfile: PatientProfile | null;
+  doctorProfile?: { id: string } | null;
+  roles?: { roleType: RoleType }[];
 };
 
 export class PatientRepository {
   async findByEmail(email: string): Promise<UserWithProfile | null> {
     return prisma.user.findUnique({
       where: { email },
-      include: { patientProfile: true },
+      include: {
+        patientProfile: true,
+        doctorProfile: { select: { id: true } },
+        roles: true,
+      },
     });
   }
 
@@ -78,6 +84,58 @@ export class PatientRepository {
         },
       },
       include: { patientProfile: true },
+    });
+  }
+
+  // Add patient role to existing user (who is already a doctor)
+  async addPatientRoleToExistingUser(
+    userId: string,
+    data: Omit<CompleteRegistrationDto, "email" | "password"> & {
+      hashedPassword?: string;
+    },
+  ): Promise<UserWithProfile> {
+    // Generate sequential patient ID
+    const patientId = await this.generatePatientId();
+
+    // Generate QR code image as base64 data URL
+    const qrCodeImageUrl = await qrCodeService.generateDataUrl(patientId);
+
+    // Create patient profile and add role in a transaction
+    return prisma.$transaction(async (tx) => {
+      // Create patient profile
+      await tx.patientProfile.create({
+        data: {
+          userId: userId,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          nationality: data.nationality,
+          dateOfBirth: new Date(data.dateOfBirth),
+          covidVaccinated: data.covidVaccinated,
+          qrCode: patientId,
+          qrCodeImageUrl,
+          qrCodeGeneratedAt: new Date(),
+        },
+      });
+
+      // Add PATIENT role
+      await tx.userRole.create({
+        data: {
+          userId: userId,
+          roleType: RoleType.PATIENT,
+        },
+      });
+
+      // Mark email as verified (doctor already verified)
+      await tx.user.update({
+        where: { id: userId },
+        data: { isEmailVerified: true },
+      });
+
+      // Return updated user
+      return tx.user.findUnique({
+        where: { id: userId },
+        include: { patientProfile: true },
+      }) as Promise<UserWithProfile>;
     });
   }
 

@@ -913,6 +913,7 @@ model Feedback {
 model DoctorProfile {
   id                   String    @id @default(uuid())
   userId               String    @unique @map("user_id")
+  doctorId             String    @unique @map("doctor_id") // DOC-XXXXXXXX format
   firstName            String    @map("first_name")
   lastName             String    @map("last_name")
   specialization       String?
@@ -960,6 +961,7 @@ model DoctorProfile {
 
   @@index([userId])
   @@index([specialization])
+  @@index([doctorId])
   @@map("doctor_profiles")
 }
 

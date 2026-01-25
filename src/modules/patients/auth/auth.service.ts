@@ -26,11 +26,30 @@ import {
 import prisma from "@config/database";
 
 export class AuthService {
-  async sendOtp(data: SendOtpDto): Promise<{ message: string }> {
+  async sendOtp(
+    data: SendOtpDto,
+  ): Promise<{ message: string; isDoctorFlow?: boolean }> {
     const { email } = data;
 
     const existingUser = await patientRepository.findByEmail(email);
+
     if (existingUser) {
+      // Case 1: User already has patient profile
+      if (existingUser.patientProfile) {
+        throw new ConflictError("Email already registered as patient");
+      }
+
+      // Case 2: User is a doctor without patient profile - allow registration
+      if (existingUser.doctorProfile) {
+        // Doctor doesn't need OTP verification (already verified)
+        return {
+          message:
+            "You are already registered as a doctor. You can complete patient registration directly.",
+          isDoctorFlow: true,
+        };
+      }
+
+      // Case 3: User exists but has no profile (shouldn't happen)
       throw new ConflictError("Email already registered");
     }
 
@@ -64,16 +83,63 @@ export class AuthService {
   ): Promise<{ message: string; user: UserResponse; token: string }> {
     const { email, password } = data;
 
+    const existingUser = await patientRepository.findByEmail(email);
+
+    // Case: Existing doctor wants to become patient
+    if (existingUser) {
+      // Already has patient profile
+      if (existingUser.patientProfile) {
+        throw new ConflictError("Email already registered as patient");
+      }
+
+      // Is a doctor - add patient role
+      if (existingUser.doctorProfile) {
+        // Verify password matches their existing account
+        const isPasswordValid = await bcrypt.compare(
+          password,
+          existingUser.passwordHash,
+        );
+        if (!isPasswordValid) {
+          throw new UnauthorizedError(
+            "Invalid password. Use your existing account password.",
+          );
+        }
+
+        // Add patient role to existing user
+        const user = await patientRepository.addPatientRoleToExistingUser(
+          existingUser.id,
+          {
+            firstName: data.firstName,
+            lastName: data.lastName,
+            phoneNumber: data.phoneNumber,
+            nationality: data.nationality,
+            dateOfBirth: data.dateOfBirth,
+            covidVaccinated: data.covidVaccinated,
+          },
+        );
+
+        logger.info(`Patient role added to existing doctor: ${email}`);
+
+        const token = this.generateToken(user);
+
+        return {
+          message:
+            "Patient profile created successfully. Please accept the terms and conditions.",
+          user: this.toUserResponse(user),
+          token,
+        };
+      }
+
+      // User exists but has no profile (shouldn't happen)
+      throw new ConflictError("Email already registered");
+    }
+
+    // Case: New user - require OTP verification
     const hasVerifiedEmail = await otpService.hasVerifiedEmail(email);
     if (!hasVerifiedEmail) {
       throw new BadRequestError(
         "Email not verified. Please verify your email first.",
       );
-    }
-
-    const existingUser = await patientRepository.findByEmail(email);
-    if (existingUser) {
-      throw new ConflictError("Email already registered");
     }
 
     const passwordValidation = PasswordValidator.validate(password);
