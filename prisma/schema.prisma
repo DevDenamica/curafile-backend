@@ -124,6 +124,13 @@ enum ClinicStaffRole {
   LAB_TECHNICIAN
 }
 
+enum ClinicDoctorStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
 enum PharmacyStaffRole {
   PHARMACIST
   PHARMACY_ASSISTANT
@@ -734,8 +741,8 @@ model PatientProfile {
 
   // Medical History
   allergies          Json?
-  chronicConditions  Json? @map("chronic_conditions")
-  currentMedications Json? @map("current_medications")
+  chronicConditions  Json?   @map("chronic_conditions")
+  currentMedications Json?   @map("current_medications")
   covidVaccinated    Boolean @default(false) @map("covid_vaccinated")
 
   // QR Code
@@ -1235,15 +1242,22 @@ model ClinicStaff {
 }
 
 model ClinicDoctor {
-  id              String    @id @default(uuid())
-  clinicId        String    @map("clinic_id")
-  doctorId        String    @map("doctor_id")
-  isActive        Boolean   @default(true) @map("is_active")
-  consultationFee Decimal?  @map("consultation_fee") @db.Decimal(10, 2)
+  id              String             @id @default(uuid())
+  clinicId        String             @map("clinic_id")
+  doctorId        String             @map("doctor_id")
+  status          ClinicDoctorStatus @default(PENDING)
+  invitedAt       DateTime           @default(now()) @map("invited_at")
+  respondedAt     DateTime?          @map("responded_at")
+  expiresAt       DateTime?          @map("expires_at")
+  isActive        Boolean            @default(true) @map("is_active")
+  consultationFee Decimal?           @map("consultation_fee") @db.Decimal(10, 2)
   schedule        Json?
-  slotDuration    Int?      @map("slot_duration")
-  addedBy         String?   @map("added_by")
-  addedAt         DateTime? @map("added_at")
+  slotDuration    Int?               @map("slot_duration")
+  addedBy         String?            @map("added_by")
+  addedAt         DateTime?          @map("added_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Soft delete
   deletedAt DateTime? @map("deleted_at")
@@ -1255,6 +1269,8 @@ model ClinicDoctor {
   adder  User?         @relation("DoctorAdder", fields: [addedBy], references: [id])
 
   @@unique([clinicId, doctorId])
+  @@index([status])
+  @@index([expiresAt])
   @@map("clinic_doctors")
 }
 

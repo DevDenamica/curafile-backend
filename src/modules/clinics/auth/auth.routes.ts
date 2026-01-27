@@ -1,7 +1,7 @@
-import { NextFunction, Router } from "express";
+import { Router } from "express";
 import authController from "./auth.controller";
+import { authenticateClinic } from "@shared/middlewares/auth.middleware";
 import logoutController from "./logout.controller";
-import { authenticateDoctor } from "@/shared/middlewares/auth.middleware";
 
 const router = Router();
 
@@ -22,15 +22,14 @@ router.post(
   authController.resetPassword.bind(authController),
 );
 
-// Logout
 router.post(
   "/logout",
-  authenticateDoctor,
+  authenticateClinic,
   logoutController.logout.bind(logoutController),
 );
 router.post(
   "/logout-all",
-  authenticateDoctor,
+  authenticateClinic,
   logoutController.logoutAllDevices.bind(logoutController),
 );
 

@@ -27,7 +27,7 @@ declare global {
 export const authenticatePatient = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
@@ -43,7 +43,7 @@ export const authenticatePatient = async (
     const isBlacklisted = await logoutService.isTokenBlacklisted(token);
     if (isBlacklisted) {
       throw new UnauthorizedError(
-        "Token has been invalidated. Please login again."
+        "Token has been invalidated. Please login again.",
       );
     }
 
@@ -66,7 +66,7 @@ export const authenticatePatient = async (
 
     if (!user.isActive || user.isDeleted) {
       throw new UnauthorizedError(
-        "Account is inactive. Please contact support."
+        "Account is inactive. Please contact support.",
       );
     }
 
@@ -125,6 +125,68 @@ export const authenticateDoctor = async (
             isVerified: true,
           },
         },
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedError("User not found");
+    }
+
+    if (!user.isActive || user.isDeleted) {
+      throw new UnauthorizedError(
+        "Account is inactive. Please contact support.",
+      );
+    }
+
+    req.user = decoded;
+
+    next();
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      next(error);
+    } else if (error instanceof jwt.JsonWebTokenError) {
+      next(new UnauthorizedError("Invalid token"));
+    } else if (error instanceof jwt.TokenExpiredError) {
+      next(new UnauthorizedError("Token expired"));
+    } else {
+      next(error);
+    }
+  }
+};
+
+export const authenticateClinic = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      throw new UnauthorizedError("No token provided");
+    }
+
+    const token = authHeader.substring(7);
+
+    const decoded = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
+
+    const isBlacklisted = await logoutService.isTokenBlacklisted(token);
+    if (isBlacklisted) {
+      throw new UnauthorizedError(
+        "Token has been invalidated. Please login again.",
+      );
+    }
+
+    if (decoded.role !== "CLINIC_STAFF") {
+      throw new UnauthorizedError("Access denied. Clinic staff role required.");
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: {
+        id: true,
+        isActive: true,
+        isDeleted: true,
       },
     });
 
