@@ -11,6 +11,7 @@ import notFoundHandler from "@shared/middlewares/notFound";
 import healthRoutes from "@modules/health/health.routes";
 import patientRoutes from "@modules/patients";
 import doctorRoutes from "@modules/doctors";
+import clinicRoutes from "@modules/clinics";
 
 class App {
   public app: Application;
@@ -31,7 +32,7 @@ class App {
       cors({
         origin: true,
         credentials: true,
-      })
+      }),
     );
 
     // Body parsing middleware
@@ -62,6 +63,9 @@ class App {
 
     // Doctor routes
     this.app.use("/api/doctors", doctorRoutes);
+
+    // Clinic routes
+    this.app.use("/api/clinics", clinicRoutes);
   }
 
   private initializeErrorHandling(): void {

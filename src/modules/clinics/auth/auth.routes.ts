@@ -1,7 +1,7 @@
 import { Router } from "express";
 import authController from "./auth.controller";
-import { authenticateClinic } from "@shared/middlewares/auth.middleware";
 import logoutController from "./logout.controller";
+import { authenticateClinic } from "@shared/middlewares/auth.middleware";
 
 const router = Router();
 
@@ -22,6 +22,7 @@ router.post(
   authController.resetPassword.bind(authController),
 );
 
+// Protected logout routes (require authentication)
 router.post(
   "/logout",
   authenticateClinic,
